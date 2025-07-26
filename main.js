@@ -29,6 +29,21 @@ let rotation = defaultRotation;
 const [x, y] = center;
 const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentValue];
 
+// --- Styles ---
+const labelStyle = new Style({
+  text: new Text({
+    font: '14px Georgia,sans-serif',
+    overflow: 'show',
+    fill: new Fill({ color: '#000'}),
+    stroke: new Stroke({ color: '#fff', width: 4 }),
+  }),
+});
+const standStyle = new Style({
+  fill: new Fill({ color: 'rgba(255, 255, 255, 1' }),
+  stroke: new Stroke({ color: '#319FD3', width: 1 }),
+});
+const style = [standStyle, labelStyle];
+
 // --- Scale Control ---
 let control;
 function scaleControl() {
@@ -41,31 +56,6 @@ function scaleControl() {
     });
     return control;
   };
-
-// styling for the vector stand layer
-const labelStyle = new Style({
-  text: new Text({
-    font: '14px Georgia,sans-serif',
-    overflow: 'show',
-    fill: new Fill({
-      color: '#000',
-    }),
-    stroke: new Stroke({
-      color: '#fff',
-      width: 4,
-    }),
-  }),
-});
-const standStyle = new Style({
-  fill: new Fill({
-    color: 'rgba(255, 255, 255, 1',
-  }),
-  stroke: new Stroke({
-    color: '#319FD3',
-    width: 1,
-  }),
-});
-const style = [standStyle, labelStyle];
 
 // vector layer for the stands
 let standsLayer = new VectorLayer({
