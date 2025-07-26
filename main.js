@@ -1,38 +1,35 @@
+// --- Imports ---
 import './style.css';
 import {Map, View} from 'ol';
-import ScaleLine from 'ol/control/ScaleLine.js';
 import {defaults as defaultControls} from 'ol/control/defaults.js';
+import ScaleLine from 'ol/control/ScaleLine.js';
+import Link from 'ol/interaction/Link.js';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM.js';
-// imports for Web Mercator projection
 import {fromLonLat} from 'ol/proj.js';
-// imports for stands layer
 import GeoJSON from 'ol/format/GeoJSON.js';
 import VectorLayer from 'ol/layer/Vector.js';
 import VectorSource from 'ol/source/Vector.js';
-// imports for styling text on the vector layer
 import Fill from 'ol/style/Fill.js';
 import Stroke from 'ol/style/Stroke.js';
 import Style from 'ol/style/Style.js';
 import Text from 'ol/style/Text.js';
 
-
-// Define the venue's longitude and latitude in WGS84
+// --- Config ---
 const venueLonLat = [0.029912, 51.508144];
-// Convert the venue's longitude and latitude to Web Mercator coordinates - meters
-let center = fromLonLat(venueLonLat);
-// Define the extent value in meters for the map - 2km around the venue
 const extentValue = 1500;
+const defaultZoom = 17;
+const defaultRotation = 1.570796;
+const link = new Link();
 
-// default zoom and rotation, centre is above
-let zoom = 17;
-let rotation = 0;
-
-// Calculate the extent based on the venue's Web Mercator coordinates
-let [x, y] = center;
+// --- Center & Extents ---
+let center = fromLonLat(venueLonLat);
+let zoom = defaultZoom;
+let rotation = defaultRotation;
+const [x, y] = center;
 const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentValue];
 
-// Create a scale control and add it to the map
+// --- Scale Control ---
 let control;
 function scaleControl() {
     control = new ScaleLine({
@@ -44,19 +41,6 @@ function scaleControl() {
     });
     return control;
   };
-
-// Permalink reload functionality
-if (window.location.hash !== '') {
-  // try to restore center, zoom-level and rotation from the URL
-  const hash = window.location.hash.replace('#map=', '');
-  const parts = hash.split('/');
-  if (parts.length === 4) {
-    zoom = parseFloat(parts[0]);
-    center = [parseFloat(parts[1]), parseFloat(parts[2])];
-    rotation = parseFloat(parts[3]);
-  }
-}
-// End of permalink reload functionality
 
 // styling for the vector stand layer
 const labelStyle = new Style({
@@ -146,6 +130,8 @@ const map = new Map({
   })
 });
 
+map.addInteraction(link);
+
 
 
 // // <<--- highlight feature on hover -->> //
@@ -186,52 +172,9 @@ const map = new Map({
 //   displayFeatureInfo(evt.pixel);
 // });
 
-// Permalink functionality
-let shouldUpdate = true;
-const view = map.getView();
-const updatePermalink = function () {
-  if (!shouldUpdate) {
-    // do not update the URL when the view was changed in the 'popstate' handler
-    shouldUpdate = true;
-    return;
-  }
-
-  const center = view.getCenter();
-  const hash =
-    '#map=' +
-    view.getZoom().toFixed(2) +
-    '/' +
-    center[0].toFixed(2) +
-    '/' +
-    center[1].toFixed(2) +
-    '/' +
-    view.getRotation();
-  const state = {
-    zoom: view.getZoom(),
-    center: view.getCenter(),
-    rotation: view.getRotation(),
-  };
-  window.history.pushState(state, 'map', hash);
-};
-
-map.on('moveend', updatePermalink);
-
-// restore the view state when navigating through the history, see
-// https://developer.mozilla.org/en-US/docs/Web/API/WindowEventHandlers/onpopstate
-window.addEventListener('popstate', function (event) {
-  if (event.state === null) {
-    return;
-  }
-  map.getView().setCenter(event.state.center);
-  map.getView().setZoom(event.state.zoom);
-  map.getView().setRotation(event.state.rotation);
-  shouldUpdate = false;
-});
-//end of permalink functionality
-
 // Add tooltips to the zoom buttons
 document
-  .querySelectorAll('.ol-zoom-in, .ol-zoom-out')
+  .querySelectorAll('.ol-zoom-in, .ol-zoom-out, .ol-rotate-reset')
   .forEach(function (el) {
     new bootstrap.Tooltip(el, {
       container: '#map',
