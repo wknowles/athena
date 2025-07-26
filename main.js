@@ -7,7 +7,8 @@ import Link from 'ol/interaction/Link.js';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM.js';
 import {fromLonLat} from 'ol/proj.js';
-import GeoJSON from 'ol/format/GeoJSON.js';
+// import GeoJSON from 'ol/format/GeoJSON.js';
+import TopoJSON from 'ol/format/TopoJSON.js';
 import VectorLayer from 'ol/layer/Vector.js';
 import VectorSource from 'ol/source/Vector.js';
 import Fill from 'ol/style/Fill.js';
@@ -45,37 +46,25 @@ const standStyle = new Style({
 const style = [standStyle, labelStyle];
 
 // --- Scale Control ---
-let control;
-function scaleControl() {
-    control = new ScaleLine({
-      units: "metric",
-      bar: true,
-      steps: parseInt(5, 10),
-      text: false,
-      minWidth: 140,
-    });
-    return control;
-  };
+const scaleControl = () =>
+  new ScaleLine({
+    units: "metric",
+    bar: true,
+    steps: 5,
+    text: false,
+    minWidth: 140,
+  });
 
-// vector layer for the stands
-let standsLayer = new VectorLayer({
+// -- Stands Layer ---
+const standsLayer = new VectorLayer({
     declutter: 'separate',
     source: new VectorSource({
-    url: 'LBF25.geojson',
-    format: new GeoJSON(), 
+    url: 'LBF25.json',
+    format: new TopoJSON(), 
   }),
-  // style: {
-  //   'stroke-color': 'rgba(180, 180, 255, 1)',
-  //   'stroke-width': 1,
-  //   'fill-color': 'rgba(200, 200, 255, 0.85)',
-  //   'text-value': ['get', 'standID'],
-  //   'text-font': '12px sans-serif',
-  //   'text-overflow': true,
-  // },
-  style: function (feature) {
-    labelStyle
-      .getText()
-      .setText([
+  style: feature => {
+    labelStyle.getText().setText(
+      [
         `${feature.get('standID')}`,
         'bold 12px Calibri,sans-serif',
         '\n',
@@ -86,21 +75,13 @@ let standsLayer = new VectorLayer({
         '',
         `${feature.get('Area')} m²`,
         'italic 10px Calibri,sans-serif',
-      ]);
+      ]
+    );
     return style;
   },
 });
 
-// Add an event listener to the stands layer to log the number of features found in the GeoJSON file
-standsLayer.getSource().on('change', function(evt){
-  const source = evt.target;
-  if (source.getState() === 'ready') {
-    const numFeatures = source.getFeatures().length;
-    console.log("Count after change: " + numFeatures);
-  }
-});
-
-// Create the map with the specified layers and view
+// --- Map ---
 const map = new Map({
   controls: defaultControls().extend([scaleControl()]),
   target: 'map',
@@ -108,8 +89,7 @@ const map = new Map({
     new TileLayer({
       source: new OSM(),
       minResolution: 0.3,
-      // maxResolution: 200,
-    }),
+      }),
     standsLayer,
   ],
   view: new View({
@@ -122,47 +102,7 @@ const map = new Map({
 
 map.addInteraction(link);
 
-
-
-// // <<--- highlight feature on hover -->> //
-// const featureOverlay = new VectorLayer({
-//   source: new VectorSource(),
-//   map: map,
-//   style: {
-//     'fill-color': 'rgba(255, 255, 255, 0.7)',
-//     'stroke-width': 2,
-//   },
-// });
-
-// let highlight;
-// const displayFeatureInfo = function (pixel) {
-//   const feature = map.forEachFeatureAtPixel(pixel, function (feature) {
-//     return feature;
-//   });
-
-//   if (feature !== highlight) {
-//     if (highlight) {
-//       featureOverlay.getSource().removeFeature(highlight);
-//     }
-//     if (feature) {
-//       featureOverlay.getSource().addFeature(feature);
-//     }
-//     highlight = feature;
-//   }
-// };
-
-// map.on('pointermove', function (evt) {
-//   if (evt.dragging) {
-//     return;
-//   }
-//   displayFeatureInfo(evt.pixel);
-// });
-
-// map.on('click', function (evt) {
-//   displayFeatureInfo(evt.pixel);
-// });
-
-// Add tooltips to the zoom buttons
+//  --- Add tooltips styled by bootstrap ---
 document
   .querySelectorAll('.ol-zoom-in, .ol-zoom-out, .ol-rotate-reset')
   .forEach(function (el) {
@@ -170,3 +110,41 @@ document
       container: '#map',
     });
   });
+
+// --- Highlight Feature on Hover ---
+const highlightStyle = new Style({
+  fill: new Fill({ color: 'rgba(255,255,0,0.3)' }),
+  stroke: new Stroke({ color: '#f00', width: 2 }),
+});
+
+const featureOverlay = new VectorLayer({
+  source: new VectorSource(),
+  map: map,
+  style: highlightStyle,
+});
+
+let highlightedFeature = null;
+
+const highlightFeatureAtPixel = pixel => {
+  const feature = map.forEachFeatureAtPixel(pixel, f => f);
+  const overlaySource = featureOverlay.getSource();
+
+  if (highlightedFeature && highlightedFeature !== feature) {
+    overlaySource.removeFeature(highlightedFeature);
+    highlightedFeature = null;
+  }
+  if (feature && feature !== highlightedFeature) {
+    overlaySource.addFeature(feature);
+    highlightedFeature = feature;
+  }
+};
+
+map.on('pointermove', evt => {
+  if (!evt.dragging) {
+    highlightFeatureAtPixel(evt.pixel);
+  }
+});
+
+map.on('click', evt => {
+  highlightFeatureAtPixel(evt.pixel);
+});
