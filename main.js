@@ -241,82 +241,93 @@ map.on('click', evt => {
   highlightFeatureAtPixel(evt.pixel);
 });
 
-// --- Build autocomplete options ---
-function buildAutocompleteOptions() {
-  const datalist = document.getElementById('feature-options');
-  datalist.innerHTML = '';
-  const seen = new Set();
+
+// --- Autocomplete Search ---
+let fuse = null;
+let fuseData = [];
+
+function buildFuseIndex() {
+  fuseData = [];
   standsLayer.getSource().forEachFeature(function(feature) {
-    const standID = String(feature.get('standID') || '');
-    const displayName = String(feature.get('Display Name') || '');
-    if (standID && !seen.has(standID)) {
-      datalist.innerHTML += `<option value="${standID}">`;
-      seen.add(standID);
-    }
-    if (displayName && !seen.has(displayName)) {
-      datalist.innerHTML += `<option value="${displayName}">`;
-      seen.add(displayName);
-    }
+    fuseData.push({
+      standID: String(feature.get('standID') || ''),
+      displayName: String(feature.get('Display Name') || ''),
+      feature: feature
+    });
+  });
+  fuse = new Fuse(fuseData, {
+    keys: ['standID', 'displayName'],
+    threshold: 0.4, // adjust for fuzziness
+    includeScore: true,
   });
 }
+
+// Build index when features are ready
 standsLayer.getSource().on('change', function() {
   if (standsLayer.getSource().getState() === 'ready') {
+    buildFuseIndex();
     buildAutocompleteOptions();
   }
 });
-
-// --- Fuzzy search helper ---
-function fuzzyMatch(needle, haystack) {
-  // Simple case-insensitive substring match, or use a library for better results
-  return haystack.toLowerCase().includes(needle.toLowerCase());
+if (standsLayer.getSource().getState() === 'ready') {
+  buildFuseIndex();
+  buildAutocompleteOptions();
 }
 
-function zoomToFeatureFuzzy(searchValue) {
-  let foundFeature = null;
-  let foundScore = 0;
-  standsLayer.getSource().forEachFeature(function(feature) {
-    const standID = String(feature.get('standID') || '');
-    const displayName = String(feature.get('Display Name') || '');
-    // Prefer exact match
-    if (
-      standID.toLowerCase() === searchValue.toLowerCase() ||
-      displayName.toLowerCase() === searchValue.toLowerCase()
-    ) {
-      foundFeature = feature;
-      foundScore = 2;
-    } else if (foundScore < 1 && (fuzzyMatch(searchValue, standID) || fuzzyMatch(searchValue, displayName))) {
-      foundFeature = feature;
-      foundScore = 1;
+// Build autocomplete options
+function buildAutocompleteOptions() {
+  const datalist = document.getElementById('feature-options');
+  datalist.innerHTML = '';
+  if (!fuseData.length) return;
+  const seen = new Set();
+  fuseData.forEach(item => {
+    if (item.standID && !seen.has(item.standID)) {
+      datalist.innerHTML += `<option value="${item.standID}">`;
+      seen.add(item.standID);
+    }
+    if (item.displayName && !seen.has(item.displayName)) {
+      datalist.innerHTML += `<option value="${item.displayName}">`;
+      seen.add(item.displayName);
     }
   });
-
-  if (foundFeature) {
-    const geometry = foundFeature.getGeometry();
+  console.log(datalist.innerHTML); // <-- Add this line
+}
+// --- Search Button ---
+function zoomToFeatureFuse(searchValue) {
+  if (!fuse) return;
+  // First, try exact match
+  let found = fuseData.find(item =>
+    item.standID.toLowerCase() === searchValue.toLowerCase() ||
+    item.displayName.toLowerCase() === searchValue.toLowerCase()
+  );
+  // If not found, use Fuse fuzzy search
+  if (!found) {
+    const results = fuse.search(searchValue);
+    if (results.length > 0) {
+      found = results[0].item;
+    }
+  }
+  if (found && found.feature) {
+    const geometry = found.feature.getGeometry();
     const extent = geometry.getExtent();
     map.getView().fit(extent, {
       maxZoom: 22,
       duration: 800,
     });
     featureOverlay.getSource().clear();
-    featureOverlay.getSource().addFeature(foundFeature);
+    featureOverlay.getSource().addFeature(found.feature);
   } else {
     alert('No stand found for: ' + searchValue);
   }
 }
 
-// Attach event to search box
 document.getElementById('feature-search-btn').onclick = function() {
   const value = document.getElementById('feature-search').value.trim();
-  if (value) zoomToFeatureFuzzy(value);
+  if (value) zoomToFeatureFuse(value);
 };
 document.getElementById('feature-search').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') {
     const value = document.getElementById('feature-search').value.trim();
-    if (value) zoomToFeatureFuzzy(value);
+    if (value) zoomToFeatureFuse(value);
   }
 });
-
-// Optionally, build options on load if features are already present
-if (standsLayer.getSource().getState() === 'ready') {
-  buildAutocompleteOptions();
-}
