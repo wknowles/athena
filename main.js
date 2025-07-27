@@ -35,7 +35,7 @@ const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentVa
 // --- Styles ---
 const labelStyle = new Style({
   text: new Text({
-    font: '14px Georgia,sans-serif',
+    font: '14px Calibri, sans-serif',
     overflow: true,
     fill: new Fill({ color: '#000'}),
     stroke: new Stroke({ color: '#fff', width: 4 }),
@@ -47,13 +47,8 @@ const standStyle = new Style({
 });
 const style = [standStyle, labelStyle];
 
-// Caches for label styles
-const standIDLabelCache = {};
-const standAreaLabelCache = {};
-
 const standIDLabel = (feature) => {
   const standID = feature.get('standID') || '';
-  if (standIDLabelCache[standID]) return standIDLabelCache[standID];
   // Get the geometry's extent
   const extent = feature.getGeometry().getExtent();
   // Top left corner: [maxX, maxY]
@@ -73,13 +68,11 @@ const standIDLabel = (feature) => {
       textBaseline: 'top',
     }),
   });
-  standIDLabelCache[standID] = style;
   return style;
 };
 
 const standAreaLabel = (feature) => {
   const area = feature.get('Area') || '';
-  // if (standAreaLabelCache[area]) return standAreaLabelCache[area];
   // Get the geometry's extent
   const extent = feature.getGeometry().getExtent();
   // Top left corner: [maxX, maxY]
@@ -100,7 +93,6 @@ const standAreaLabel = (feature) => {
       textBaseline: 'bottom',
     }),
   });
-  standAreaLabelCache[area] = style;
   return style;
 };
 
@@ -132,7 +124,7 @@ const standNameLabel = (feature) => {
     geometry: center,
     text: new Text({
       text: displayName,
-      font: '14px Georgia,sans-serif',
+      font: '14px Georgia, serif',
       overflow: true,
       fill: new Fill({ color: '#000'}),
       stroke: new Stroke({ color: '#fff', width: 4 }),
@@ -188,49 +180,49 @@ const map = new Map({
 
 map.addInteraction(link);
 
-// //  --- Add tooltips styled by bootstrap ---
-// document
-//   .querySelectorAll('.ol-zoom-in, .ol-zoom-out, .ol-rotate-reset')
-//   .forEach(function (el) {
-//     new bootstrap.Tooltip(el, {
-//       container: '#map',
-//     });
-//   });
+//  --- Add tooltips styled by bootstrap ---
+document
+  .querySelectorAll('.ol-zoom-in, .ol-zoom-out, .ol-rotate-reset')
+  .forEach(function (el) {
+    new bootstrap.Tooltip(el, {
+      container: '#map',
+    });
+  });
 
-// // --- Highlight Feature on Hover ---
-// const highlightStyle = new Style({
-//   fill: new Fill({ color: 'rgba(255,255,0,0.3)' }),
-//   stroke: new Stroke({ color: '#f00', width: 2 }),
-// });
+// --- Highlight Feature on Hover ---
+const highlightStyle = new Style({
+  fill: new Fill({ color: 'rgba(255,255,0,0.3)' }),
+  stroke: new Stroke({ color: '#f00', width: 2 }),
+});
 
-// const featureOverlay = new VectorLayer({
-//   source: new VectorSource(),
-//   map: map,
-//   style: highlightStyle,
-// });
+const featureOverlay = new VectorLayer({
+  source: new VectorSource(),
+  map: map,
+  style: highlightStyle,
+});
 
-// let highlightedFeature = null;
+let highlightedFeature = null;
 
-// const highlightFeatureAtPixel = pixel => {
-//   const feature = map.forEachFeatureAtPixel(pixel, f => f);
-//   const overlaySource = featureOverlay.getSource();
+const highlightFeatureAtPixel = pixel => {
+  const feature = map.forEachFeatureAtPixel(pixel, f => f);
+  const overlaySource = featureOverlay.getSource();
 
-//   if (highlightedFeature && highlightedFeature !== feature) {
-//     overlaySource.removeFeature(highlightedFeature);
-//     highlightedFeature = null;
-//   }
-//   if (feature && feature !== highlightedFeature) {
-//     overlaySource.addFeature(feature);
-//     highlightedFeature = feature;
-//   }
-// };
+  if (highlightedFeature && highlightedFeature !== feature) {
+    overlaySource.removeFeature(highlightedFeature);
+    highlightedFeature = null;
+  }
+  if (feature && feature !== highlightedFeature) {
+    overlaySource.addFeature(feature);
+    highlightedFeature = feature;
+  }
+};
 
-// map.on('pointermove', evt => {
-//   if (!evt.dragging) {
-//     highlightFeatureAtPixel(evt.pixel);
-//   }
-// });
+map.on('pointermove', evt => {
+  if (!evt.dragging) {
+    highlightFeatureAtPixel(evt.pixel);
+  }
+});
 
-// map.on('click', evt => {
-//   highlightFeatureAtPixel(evt.pixel);
-// });
+map.on('click', evt => {
+  highlightFeatureAtPixel(evt.pixel);
+});
