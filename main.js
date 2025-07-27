@@ -101,8 +101,8 @@ const standNameLabel = (feature) => {
   const width = extent[2] - extent[0];
   const height = extent[3] - extent[1];
   // Choose a scaling factor that works for your map units
-  const minFont = 6;
-  const maxFont = 18;
+  const minFont = 4;
+  const maxFont = 16;
   
   let baseFont = Math.min(width, height) / 8;
   let zoomFont = baseFont / resolution;
@@ -151,7 +151,7 @@ const standAreaLayer = new VectorLayer({
     url: 'LBF25.geojson',
     format: new GeoJSON(),
   }),
-  maxResolution: 0.2,
+  maxResolution: 0.15,
   style: feature => {
     const area = feature.get('Area') || '';
     const extent = feature.getGeometry().getExtent();
@@ -192,7 +192,6 @@ const map = new Map({
     extent: extents,
   })
 });
-
 map.addInteraction(link);
 
 //  --- Add tooltips styled by bootstrap ---
@@ -241,3 +240,83 @@ map.on('pointermove', evt => {
 map.on('click', evt => {
   highlightFeatureAtPixel(evt.pixel);
 });
+
+// --- Build autocomplete options ---
+function buildAutocompleteOptions() {
+  const datalist = document.getElementById('feature-options');
+  datalist.innerHTML = '';
+  const seen = new Set();
+  standsLayer.getSource().forEachFeature(function(feature) {
+    const standID = String(feature.get('standID') || '');
+    const displayName = String(feature.get('Display Name') || '');
+    if (standID && !seen.has(standID)) {
+      datalist.innerHTML += `<option value="${standID}">`;
+      seen.add(standID);
+    }
+    if (displayName && !seen.has(displayName)) {
+      datalist.innerHTML += `<option value="${displayName}">`;
+      seen.add(displayName);
+    }
+  });
+}
+standsLayer.getSource().on('change', function() {
+  if (standsLayer.getSource().getState() === 'ready') {
+    buildAutocompleteOptions();
+  }
+});
+
+// --- Fuzzy search helper ---
+function fuzzyMatch(needle, haystack) {
+  // Simple case-insensitive substring match, or use a library for better results
+  return haystack.toLowerCase().includes(needle.toLowerCase());
+}
+
+function zoomToFeatureFuzzy(searchValue) {
+  let foundFeature = null;
+  let foundScore = 0;
+  standsLayer.getSource().forEachFeature(function(feature) {
+    const standID = String(feature.get('standID') || '');
+    const displayName = String(feature.get('Display Name') || '');
+    // Prefer exact match
+    if (
+      standID.toLowerCase() === searchValue.toLowerCase() ||
+      displayName.toLowerCase() === searchValue.toLowerCase()
+    ) {
+      foundFeature = feature;
+      foundScore = 2;
+    } else if (foundScore < 1 && (fuzzyMatch(searchValue, standID) || fuzzyMatch(searchValue, displayName))) {
+      foundFeature = feature;
+      foundScore = 1;
+    }
+  });
+
+  if (foundFeature) {
+    const geometry = foundFeature.getGeometry();
+    const extent = geometry.getExtent();
+    map.getView().fit(extent, {
+      maxZoom: 22,
+      duration: 800,
+    });
+    featureOverlay.getSource().clear();
+    featureOverlay.getSource().addFeature(foundFeature);
+  } else {
+    alert('No stand found for: ' + searchValue);
+  }
+}
+
+// Attach event to search box
+document.getElementById('feature-search-btn').onclick = function() {
+  const value = document.getElementById('feature-search').value.trim();
+  if (value) zoomToFeatureFuzzy(value);
+};
+document.getElementById('feature-search').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const value = document.getElementById('feature-search').value.trim();
+    if (value) zoomToFeatureFuzzy(value);
+  }
+});
+
+// Optionally, build options on load if features are already present
+if (standsLayer.getSource().getState() === 'ready') {
+  buildAutocompleteOptions();
+}
