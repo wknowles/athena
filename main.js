@@ -79,7 +79,7 @@ const standIDLabel = (feature) => {
 
 const standAreaLabel = (feature) => {
   const area = feature.get('Area') || '';
-  if (standAreaLabelCache[area]) return standAreaLabelCache[area];
+  // if (standAreaLabelCache[area]) return standAreaLabelCache[area];
   // Get the geometry's extent
   const extent = feature.getGeometry().getExtent();
   // Top left corner: [maxX, maxY]
@@ -88,6 +88,7 @@ const standAreaLabel = (feature) => {
   // Create a new style with the label at the top left
   const style = new Style({
     geometry: new Point(bottomRight),
+    
     text: new Text({
       text: String(area),
       font: 'italic 8px Calibri,sans-serif',
@@ -101,6 +102,44 @@ const standAreaLabel = (feature) => {
   });
   standAreaLabelCache[area] = style;
   return style;
+};
+
+// -- Stands Layer ---
+const standNameLabel = (feature) => {
+  function wrapExhibitorName(text, maxLen) {
+    if (!text) return '';
+    const words = text.split(' ');
+    let lines = [];
+    let line = '';
+    words.forEach(word => {
+      if ((line + word).length > maxLen) {
+        lines.push(line.trim());
+        line = '';
+      }
+      line += word + ' ';
+    });
+    if (line) lines.push(line.trim());
+    return lines.join('\n');
+  }
+
+  const displayName = wrapExhibitorName(feature.get('Display Name'), 12);
+
+   // Center the label in the geometry
+  const geometry = feature.getGeometry();
+  const center = geometry.getInteriorPoint ? geometry.getInteriorPoint() : geometry.getClosestPoint();
+
+  return new Style({
+    geometry: center,
+    text: new Text({
+      text: displayName,
+      font: '14px Georgia,sans-serif',
+      overflow: true,
+      fill: new Fill({ color: '#000'}),
+      stroke: new Stroke({ color: '#fff', width: 4 }),
+      textAlign: 'center',
+      textBaseline: 'middle',
+    }),
+  });
 };
 
 // --- Scale Control ---
@@ -123,6 +162,7 @@ const standsLayer = new VectorLayer({
   style: feature => [
     standStyle,
     standIDLabel(feature),
+    standNameLabel(feature),
     standAreaLabel(feature)
   ],
 });
@@ -134,7 +174,7 @@ const map = new Map({
   layers: [
     new TileLayer({
       source: new OSM(),
-      minResolution: 0.3,
+      minResolution: 0.25,
       }),
     standsLayer,
   ],
