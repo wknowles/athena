@@ -17,6 +17,7 @@ import Point from 'ol/geom/Point.js';
 import Style from 'ol/style/Style.js';
 import Text from 'ol/style/Text.js';
 import { withinExtentAndZ } from 'ol/tilecoord';
+import { Vector } from 'ol/source';
 
 // --- Config ---
 const venueLonLat = [0.029912, 51.508144];
@@ -33,6 +34,7 @@ const [x, y] = center;
 const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentValue];
 
 // --- Styles ---
+// default styles for the labels and stands
 const labelStyle = new Style({
   text: new Text({
     font: '14px Calibri, sans-serif',
@@ -47,13 +49,11 @@ const standStyle = new Style({
 });
 const style = [standStyle, labelStyle];
 
+// --- Stand ID Labels ---
 const standIDLabel = (feature) => {
   const standID = feature.get('standID') || '';
-  // Get the geometry's extent
   const extent = feature.getGeometry().getExtent();
-  // Top left corner: [maxX, maxY]
   const topLeft = [extent[0], extent[3]];
-
   // Create a new style with the label at the top left
   const style = new Style({
     geometry: new Point(topLeft),
@@ -70,33 +70,7 @@ const standIDLabel = (feature) => {
   });
   return style;
 };
-
-const standAreaLabel = (feature) => {
-  const area = feature.get('Area') || '';
-  // Get the geometry's extent
-  const extent = feature.getGeometry().getExtent();
-  // Top left corner: [maxX, maxY]
-  const bottomRight = [extent[2], extent[1]];
-
-  // Create a new style with the label at the top left
-  const style = new Style({
-    geometry: new Point(bottomRight),
-    
-    text: new Text({
-      text: String(area),
-      font: 'italic 8px Calibri,sans-serif',
-      fill: new Fill({ color: '#000' }),
-      stroke: new Stroke({ color: '#fff', width: 4 }),
-      offsetX: -8, // adjust as needed to avoid clipping
-      offsetY: -6,  // adjust as needed to avoid clipping
-      textAlign: 'right',
-      textBaseline: 'bottom',
-    }),
-  });
-  return style;
-};
-
-// -- Stands Layer ---
+// -- Function to wrap Exhibitor Name so it runs multiple lines ---
 const standNameLabel = (feature) => {
   function wrapExhibitorName(text, maxLen) {
     if (!text) return '';
@@ -114,9 +88,8 @@ const standNameLabel = (feature) => {
     return lines.join('\n');
   }
 
+// -- Exhibitor Name Label ---
   const displayName = wrapExhibitorName(feature.get('Display Name'), 12);
-
-   // Center the label in the geometry
   const geometry = feature.getGeometry();
   const center = geometry.getInteriorPoint ? geometry.getInteriorPoint() : geometry.getClosestPoint();
 
@@ -125,7 +98,6 @@ const standNameLabel = (feature) => {
     text: new Text({
       text: displayName,
       font: '14px Georgia, serif',
-      overflow: true,
       fill: new Fill({ color: '#000'}),
       stroke: new Stroke({ color: '#fff', width: 4 }),
       textAlign: 'center',
@@ -154,9 +126,36 @@ const standsLayer = new VectorLayer({
   style: feature => [
     standStyle,
     standIDLabel(feature),
-    standNameLabel(feature),
-    standAreaLabel(feature)
+    standNameLabel(feature)
   ],
+});
+
+ // --- Stand Area Labels ---
+const standAreaLayer = new VectorLayer({
+  source: new VectorSource({
+    url: 'LBF25.geojson',
+    format: new GeoJSON(),
+  }),
+  maxResolution: 0.2,
+  style: feature => {
+    const area = feature.get('Area') || '';
+    const extent = feature.getGeometry().getExtent();
+    const bottomRight = [extent[2], extent[1]];
+    // Create a new style with the label at the top left
+    return new Style({
+      geometry: new Point(bottomRight),
+      text: new Text({
+        text: String(area),
+        font: 'italic 8px Calibri,sans-serif',
+        fill: new Fill({ color: '#000' }),
+        stroke: new Stroke({ color: '#fff', width: 4 }),
+        offsetX: -8, // adjust as needed to avoid clipping
+        offsetY: -6,  // adjust as needed to avoid clipping
+        textAlign: 'right',
+        textBaseline: 'bottom',
+      }),
+    });
+  }
 });
 
 // --- Map ---
@@ -169,6 +168,7 @@ const map = new Map({
       minResolution: 0.25,
       }),
     standsLayer,
+    standAreaLayer
   ],
   view: new View({
     center: center,
