@@ -93,11 +93,26 @@ const standNameLabel = (feature) => {
   const geometry = feature.getGeometry();
   const center = geometry.getInteriorPoint ? geometry.getInteriorPoint() : geometry.getClosestPoint();
 
+  // Get current map resolution (smaller = more zoomed in)
+  const resolution = map.getView().getResolution();
+
+ // Calculate font size based on feature size and map resolution 
+  const extent = geometry.getExtent();
+  const width = extent[2] - extent[0];
+  const height = extent[3] - extent[1];
+  // Choose a scaling factor that works for your map units
+  const minFont = 6;
+  const maxFont = 18;
+  
+  let baseFont = Math.min(width, height) / 8;
+  let zoomFont = baseFont / resolution;
+  let fontSize = Math.max(minFont, Math.min(maxFont, Math.round(zoomFont)));
+
   return new Style({
     geometry: center,
     text: new Text({
       text: displayName,
-      font: '14px Georgia, serif',
+      font: `${fontSize}px Georgia, serif`,
       fill: new Fill({ color: '#000'}),
       stroke: new Stroke({ color: '#fff', width: 4 }),
       textAlign: 'center',
