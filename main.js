@@ -7,7 +7,7 @@ import Link from 'ol/interaction/Link.js';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM.js';
 import {fromLonLat} from 'ol/proj.js';
-// import GeoJSON from 'ol/format/GeoJSON.js';
+import GeoJSON from 'ol/format/GeoJSON.js';
 import TopoJSON from 'ol/format/TopoJSON.js';
 import VectorLayer from 'ol/layer/Vector.js';
 import VectorSource from 'ol/source/Vector.js';
@@ -59,8 +59,8 @@ const scaleControl = () =>
 const standsLayer = new VectorLayer({
     declutter: 'separate',
     source: new VectorSource({
-    url: 'LBF25.json',
-    format: new TopoJSON(), 
+    url: 'WTMKT25.geojson',
+    format: new GeoJSON(), 
   }),
   style: feature => {
     labelStyle.getText().setText(
