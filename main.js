@@ -65,16 +65,16 @@ const standsLayer = new VectorLayer({
   style: feature => {
     labelStyle.getText().setText(
       [
-        `${feature.get('standID')}`,
-        'bold 12px Calibri,sans-serif',
-        '\n',
-        '',
         ` ${feature.get('Display Name')}`,
         '',
         '\n',
         '',
-        `${feature.get('Area')} m²`,
-        'italic 10px Calibri,sans-serif',
+        `${feature.get('standID')}`,
+        'bold 12px Calibri,sans-serif',
+        // '\n',
+        // '',
+        // `${feature.get('Area')} m²`,
+        // 'italic 10px Calibri,sans-serif',
       ]
     );
     return style;
