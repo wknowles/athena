@@ -27,6 +27,19 @@ const defaultZoom = 17;
 const defaultRotation = 0; // No rotation
 const link = new Link();
 
+// --- Center & Extents ---
+let center = fromLonLat(venueLonLat);
+let zoom = defaultZoom;
+let rotation = defaultRotation;
+const [x, y] = center;
+const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentValue];
+
+// --- Setup Colors ---
+const venueStyle = new Style({
+    fill: new Fill({ color: 'rgba(218, 218, 218, 1)' }),
+    stroke: new Stroke({ color: '#1a2a31ff', width: 3 }),
+  });
+  
 // Colour palette for product codes
 const productColors = {
   "1000004": "rgba(0, 123, 255, 0.7)",   // blue
@@ -38,25 +51,18 @@ const productColors = {
 };
 // Colour palette for Stand Status  
 const statusColors = {
-  'Sold': 'rgba(220, 53, 69, 0.7)',
-  'Available': 'rgba(0, 123, 255, 0.7)',
-  'Held': 'rgba(40, 167, 69, 0.7)',
+  'Sold': 'rgba(242, 166, 166, 1)',
+  'Available': 'rgba(237, 255, 194, 1)',
+  'Held': 'rgba(205, 239, 244, 1)',
 };
 // Colour palette for Stand Status  
 const standTypeColors = {
-  'Shell': 'rgba(34, 93, 6, 0.7)',
-  'Space': 'rgba(42, 130, 207, 0.7)',
+  'Shell': 'rgba(115, 212, 171, 1)',
+  'Space': 'rgba(251, 202, 239, 1)',
   'ShellFur': 'rgba(40, 167, 69, 0.7)',
 };
 
-// --- Center & Extents ---
-let center = fromLonLat(venueLonLat);
-let zoom = defaultZoom;
-let rotation = defaultRotation;
-const [x, y] = center;
-const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentValue];
-
-// --- Styles ---
+// --- Styling stands ---
 let showStatusFill = false;
 let showProductFill = false;
 let showStandTypeFill = false;
@@ -84,7 +90,7 @@ function getStandFillStyle(feature) {
   }
   if (showStandTypeFill) {
     const type = feature.get('Stand Type');
-    const fillColor = standTypeColors[type] || 'rgba(108, 117, 125, 0.7)';
+    const fillColor = standTypeColors[type] || 'rgba(255, 255, 255, 1)';
     return new Style({
       fill: new Fill({ color: fillColor }),
       stroke: new Stroke({ color: '#319FD3', width: 1 }),
@@ -175,6 +181,15 @@ const scaleControl = () =>
     minWidth: 140,
   });
 
+// --- Venue Layer ---
+const venueLayer = new VectorLayer({
+  source: new VectorSource({
+    url: 'WTMKT25venue.geojson',
+    format: new GeoJSON(),
+  }),
+  style: venueStyle,
+});
+
 // --- Stands Layer ---
 const standsLayer = new VectorLayer({
   declutter: true,
@@ -226,8 +241,9 @@ const map = new Map({
       source: new OSM(),
       minResolution: 0.4,
       }),
+    venueLayer,
     standsLayer,
-    standAreaLayer
+    standAreaLayer,
   ],
   view: new View({
     center: center,
@@ -247,43 +263,43 @@ document
     });
   });
 
-// --- Highlight Feature on Hover ---
-const highlightStyle = new Style({
-  fill: new Fill({ color: 'rgba(255,255,0,0.3)' }),
-  stroke: new Stroke({ color: '#f00', width: 2 }),
-});
+// // --- Highlight Feature on Hover ---
+// const highlightStyle = new Style({
+//   fill: new Fill({ color: 'rgba(255,255,0,0.3)' }),
+//   stroke: new Stroke({ color: '#f00', width: 2 }),
+// });
 
-const featureOverlay = new VectorLayer({
-  source: new VectorSource(),
-  map: map,
-  style: highlightStyle,
-});
+// const featureOverlay = new VectorLayer({
+//   source: new VectorSource(),
+//   map: map,
+//   style: highlightStyle,
+// });
 
-let highlightedFeature = null;
+// let highlightedFeature = null;
 
-const highlightFeatureAtPixel = pixel => {
-  const feature = map.forEachFeatureAtPixel(pixel, f => f);
-  const overlaySource = featureOverlay.getSource();
+// const highlightFeatureAtPixel = pixel => {
+//   const feature = map.forEachFeatureAtPixel(pixel, f => f);
+//   const overlaySource = featureOverlay.getSource();
 
-  if (highlightedFeature && highlightedFeature !== feature) {
-    overlaySource.removeFeature(highlightedFeature);
-    highlightedFeature = null;
-  }
-  if (feature && feature !== highlightedFeature) {
-    overlaySource.addFeature(feature);
-    highlightedFeature = feature;
-  }
-};
+//   if (highlightedFeature && highlightedFeature !== feature) {
+//     overlaySource.removeFeature(highlightedFeature);
+//     highlightedFeature = null;
+//   }
+//   if (feature && feature !== highlightedFeature) {
+//     overlaySource.addFeature(feature);
+//     highlightedFeature = feature;
+//   }
+// };
 
-map.on('pointermove', evt => {
-  if (!evt.dragging) {
-    highlightFeatureAtPixel(evt.pixel);
-  }
-});
+// map.on('pointermove', evt => {
+//   if (!evt.dragging) {
+//     highlightFeatureAtPixel(evt.pixel);
+//   }
+// });
 
-map.on('click', evt => {
-  highlightFeatureAtPixel(evt.pixel);
-});
+// map.on('click', evt => {
+//   highlightFeatureAtPixel(evt.pixel);
+// });
 
 
 // --- Autocomplete Search ---
@@ -376,6 +392,8 @@ document.getElementById('feature-search').addEventListener('keydown', function(e
   }
 });
 
+// --- Toggle Configurations ---
+// These toggles will allow users to show/hide different fill styles for the stands
 const toggleConfig = {
   'status-toggle': () => (showStatusFill = false),
   'product-toggle': () => (showProductFill = false),
@@ -400,9 +418,35 @@ function handleToggleChange(event, currentToggleId) {
   }
   updateToggleState[currentToggleId](isChecked);
   standsLayer.changed();
+  updateLegend();
 }
 
-// Attach event listeners dynamically
+// Attach event listeners for the stand toggles
 Object.keys(toggleConfig).forEach(toggleId => {
   document.getElementById(toggleId).addEventListener('change', e => handleToggleChange(e, toggleId));
 });
+
+// --- Legend ---
+function updateLegend() {
+  const legendDiv = document.getElementById('legend');
+  legendDiv.innerHTML = ''; // Clear previous
+
+  if (showStatusFill) {
+    legendDiv.innerHTML = `<b>Status</b><br>` +
+      Object.entries(statusColors).map(([status, color]) =>
+        `<span style="display:inline-block;width:18px;height:18px;background:${color};border:1px solid #ccc;margin-right:6px;vertical-align:middle;"></span>${status}`
+      ).join('<br>');
+  } else if (showProductFill) {
+    legendDiv.innerHTML = `<b>Product Code</b><br>` +
+      Object.entries(productColors).map(([code, color]) =>
+        `<span style="display:inline-block;width:18px;height:18px;background:${color};border:1px solid #ccc;margin-right:6px;vertical-align:middle;"></span>${code}`
+      ).join('<br>');
+  } else if (showStandTypeFill) {
+    legendDiv.innerHTML = `<b>Stand Type</b><br>` +
+      Object.entries(standTypeColors).map(([type, color]) =>
+        `<span style="display:inline-block;width:18px;height:18px;background:${color};border:1px solid #ccc;margin-right:6px;vertical-align:middle;"></span>${type}`
+      ).join('<br>');
+  } else {
+    legendDiv.innerHTML = '<b>Legend</b>';
+  }
+}
