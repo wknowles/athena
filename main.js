@@ -27,7 +27,7 @@ const defaultZoom = 17;
 const defaultRotation = 0; // No rotation
 const link = new Link();
 
-// Colour palette for product codes (expand as needed)
+// Colour palette for product codes
 const productColors = {
   "1000004": "rgba(0, 123, 255, 0.7)",   // blue
   "1000057": "rgba(255, 193, 7, 0.7)",   // yellow
@@ -35,7 +35,18 @@ const productColors = {
   "1000001": "rgba(40, 167, 69, 0.7)",   // green
   "1000002": "rgba(220, 53, 69, 0.7)",   // red
   "1000007": "rgba(23, 162, 184, 0.7)",  // teal
-  // add more as needed
+};
+// Colour palette for Stand Status  
+const statusColors = {
+  'Sold': 'rgba(220, 53, 69, 0.7)',
+  'Available': 'rgba(0, 123, 255, 0.7)',
+  'Held': 'rgba(40, 167, 69, 0.7)',
+};
+// Colour palette for Stand Status  
+const standTypeColors = {
+  'Shell': 'rgba(34, 93, 6, 0.7)',
+  'Space': 'rgba(42, 130, 207, 0.7)',
+  'ShellFur': 'rgba(40, 167, 69, 0.7)',
 };
 
 // --- Center & Extents ---
@@ -46,32 +57,18 @@ const [x, y] = center;
 const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentValue];
 
 // --- Styles ---
-// // default styles for the labels and stands
-// const labelStyle = new Style({
-//   text: new Text({
-//     font: '14px Calibri, sans-serif',
-//     overflow: true,
-//     fill: new Fill({ color: '#000'}),
-//     stroke: new Stroke({ color: '#fff', width: 4 }),
-//   }),
-// });
-// const standStyle = new Style({
-//   fill: new Fill({ color: 'rgba(255, 255, 255, 1' }),
-//   stroke: new Stroke({ color: '#319FD3', width: 1 }),
-// });
-// const style = [standStyle, labelStyle];
-
-// --- Styles ---
 let showStatusFill = false;
 let showProductFill = false;
+let showStandTypeFill = false;
 
 function getStandFillStyle(feature) {
+  const defaultStyle = new Style({
+    fill: new Fill({ color: 'rgba(255, 255, 255, 1)' }),
+    stroke: new Stroke({ color: '#319FD3', width: 1 }),
+  });
   if (showStatusFill) {
     const status = feature.get('Status');
-    let fillColor = 'rgba(255,255,255,1)';
-    if (status === 'Sold') fillColor = 'rgba(220, 53, 69, 0.7)';
-    else if (status === 'Available') fillColor = 'rgba(0, 123, 255, 0.7)';
-    else if (status === 'Held') fillColor = 'rgba(40, 167, 69, 0.7)';
+    const fillColor = statusColors[status] || 'rgba(255, 255, 255, 1)';
     return new Style({
       fill: new Fill({ color: fillColor }),
       stroke: new Stroke({ color: '#319FD3', width: 1 }),
@@ -85,11 +82,15 @@ function getStandFillStyle(feature) {
       stroke: new Stroke({ color: '#319FD3', width: 1 }),
     });
   }
-  // Default style
-  return new Style({
-    fill: new Fill({ color: 'rgba(255, 255, 255, 1)' }),
-    stroke: new Stroke({ color: '#319FD3', width: 1 }),
-  });
+  if (showStandTypeFill) {
+    const type = feature.get('Stand Type');
+    const fillColor = standTypeColors[type] || 'rgba(108, 117, 125, 0.7)';
+    return new Style({
+      fill: new Fill({ color: fillColor }),
+      stroke: new Stroke({ color: '#319FD3', width: 1 }),
+    });
+  }
+  return defaultStyle;
 }
 
 // --- Stand ID Labels ---
@@ -185,7 +186,6 @@ const standsLayer = new VectorLayer({
     standIDLabel(feature),
     standNameLabel(feature),
     getStandFillStyle(feature),
-
   ],
 });
 
@@ -376,20 +376,33 @@ document.getElementById('feature-search').addEventListener('keydown', function(e
   }
 });
 
-// Listen for toggle changes
-document.getElementById('status-toggle').addEventListener('change', function(e) {
-  showStatusFill = e.target.checked;
-  if (showStatusFill) {
-    showProductFill = false;
-    document.getElementById('product-toggle').checked = false;
+const toggleConfig = {
+  'status-toggle': () => (showStatusFill = false),
+  'product-toggle': () => (showProductFill = false),
+  'type-toggle': () => (showStandTypeFill = false),
+};
+
+const updateToggleState = {
+  'status-toggle': isChecked => (showStatusFill = isChecked),
+  'product-toggle': isChecked => (showProductFill = isChecked),
+  'type-toggle': isChecked => (showStandTypeFill = isChecked),
+};
+
+function handleToggleChange(event, currentToggleId) {
+  const isChecked = event.target.checked;
+  if (isChecked) {
+    Object.keys(toggleConfig).forEach(toggleId => {
+      if (toggleId !== currentToggleId) {
+        document.getElementById(toggleId).checked = false;
+        toggleConfig[toggleId]();
+      }
+    });
   }
+  updateToggleState[currentToggleId](isChecked);
   standsLayer.changed();
-});
-document.getElementById('product-toggle').addEventListener('change', function(e) {
-  showProductFill = e.target.checked;
-  if (showProductFill) {
-    showStatusFill = false;
-    document.getElementById('status-toggle').checked = false;
-  }
-  standsLayer.changed();
+}
+
+// Attach event listeners dynamically
+Object.keys(toggleConfig).forEach(toggleId => {
+  document.getElementById(toggleId).addEventListener('change', e => handleToggleChange(e, toggleId));
 });
