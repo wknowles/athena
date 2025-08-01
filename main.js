@@ -59,16 +59,16 @@ const scaleControl = () =>
 const standsLayer = new VectorLayer({
     declutter: 'separate',
     source: new VectorSource({
-    url: 'WTMKT25.geojson',
+    url: 'WTMKT25-alt.geojson',
     format: new GeoJSON(), 
   }),
   style: feature => {
     labelStyle.getText().setText(
       [
-        ` ${feature.get('Display Name')}`,
-        '',
-        '\n',
-        '',
+        // ` ${feature.get('Display Name')}`,
+        // '',
+        // '\n',
+        // '',
         `${feature.get('standID')}`,
         'bold 12px Calibri,sans-serif',
         // '\n',
