@@ -8,7 +8,6 @@ import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM.js';
 import {fromLonLat} from 'ol/proj.js';
 import GeoJSON from 'ol/format/GeoJSON.js';
-// import TopoJSON from 'ol/format/TopoJSON.js';
 import VectorLayer from 'ol/layer/Vector.js';
 import VectorSource from 'ol/source/Vector.js';
 import Fill from 'ol/style/Fill.js';
@@ -16,8 +15,6 @@ import Stroke from 'ol/style/Stroke.js';
 import Point from 'ol/geom/Point.js';
 import Style from 'ol/style/Style.js';
 import Text from 'ol/style/Text.js';
-import { withinExtentAndZ } from 'ol/tilecoord';
-import { Vector } from 'ol/source';
 
 // --- Config ---
 const venueLonLat = [0.029912, 51.508144];
@@ -187,6 +184,7 @@ const venueLayer = new VectorLayer({
     url: 'WTMKT25venue.geojson',
     format: new GeoJSON(),
   }),
+  maxResolution: 0.4,
   style: venueStyle,
 });
 
@@ -254,143 +252,46 @@ const map = new Map({
 });
 map.addInteraction(link);
 
-//  --- Add tooltips styled by bootstrap ---
-document
-  .querySelectorAll('.ol-zoom-in, .ol-zoom-out, .ol-rotate-reset')
-  .forEach(function (el) {
-    new bootstrap.Tooltip(el, {
-      container: '#map',
-    });
+
+// --- Highlight Feature on Hover ---
+const highlightStyle = new Style({
+  fill: new Fill({ color: 'rgba(255,255,0,0.3)' }),
+  stroke: new Stroke({ color: '#f00', width: 2 }),
+});
+
+const featureOverlay = new VectorLayer({
+  source: new VectorSource(),
+  map: map,
+  style: highlightStyle,
+});
+
+let highlightedFeature = null;
+
+const highlightFeatureAtPixel = pixel => {
+  const feature = map.forEachFeatureAtPixel(pixel, f => {
+    // Only highlight if feature is from standsLayer
+    return standsLayer.getSource().hasFeature(f) ? f : null;
   });
+  const overlaySource = featureOverlay.getSource();
 
-// // --- Highlight Feature on Hover ---
-// const highlightStyle = new Style({
-//   fill: new Fill({ color: 'rgba(255,255,0,0.3)' }),
-//   stroke: new Stroke({ color: '#f00', width: 2 }),
-// });
+  if (highlightedFeature && highlightedFeature !== feature) {
+    overlaySource.removeFeature(highlightedFeature);
+    highlightedFeature = null;
+  }
+  if (feature && feature !== highlightedFeature) {
+    overlaySource.addFeature(feature);
+    highlightedFeature = feature;
+  }
+};
 
-// const featureOverlay = new VectorLayer({
-//   source: new VectorSource(),
-//   map: map,
-//   style: highlightStyle,
-// });
-
-// let highlightedFeature = null;
-
-// const highlightFeatureAtPixel = pixel => {
-//   const feature = map.forEachFeatureAtPixel(pixel, f => f);
-//   const overlaySource = featureOverlay.getSource();
-
-//   if (highlightedFeature && highlightedFeature !== feature) {
-//     overlaySource.removeFeature(highlightedFeature);
-//     highlightedFeature = null;
-//   }
-//   if (feature && feature !== highlightedFeature) {
-//     overlaySource.addFeature(feature);
-//     highlightedFeature = feature;
-//   }
-// };
-
-// map.on('pointermove', evt => {
-//   if (!evt.dragging) {
-//     highlightFeatureAtPixel(evt.pixel);
-//   }
-// });
-
-// map.on('click', evt => {
-//   highlightFeatureAtPixel(evt.pixel);
-// });
-
-
-
-// --- Autocomplete Search ---
-let fuse = null;
-let fuseData = [];
-
-function buildFuseIndex() {
-  fuseData = [];
-  standsLayer.getSource().forEachFeature(function(feature) {
-    fuseData.push({
-      standID: String(feature.get('standID') || ''),
-      displayName: String(feature.get('Display Name') || ''),
-      feature: feature
-    });
-  });
-  fuse = new Fuse(fuseData, {
-    keys: ['standID', 'displayName'],
-    threshold: 0.4, // adjust for fuzziness
-    includeScore: true,
-  });
-}
-
-// Build index when features are ready
-standsLayer.getSource().on('change', function() {
-  if (standsLayer.getSource().getState() === 'ready') {
-    buildFuseIndex();
-    buildAutocompleteOptions();
+map.on('pointermove', evt => {
+  if (!evt.dragging) {
+    highlightFeatureAtPixel(evt.pixel);
   }
 });
-if (standsLayer.getSource().getState() === 'ready') {
-  buildFuseIndex();
-  buildAutocompleteOptions();
-}
 
-// Build autocomplete options
-function buildAutocompleteOptions() {
-  const datalist = document.getElementById('feature-options');
-  datalist.innerHTML = '';
-  if (!fuseData.length) return;
-  const seen = new Set();
-  fuseData.forEach(item => {
-    if (item.standID && !seen.has(item.standID)) {
-      datalist.innerHTML += `<option value="${item.standID}">`;
-      seen.add(item.standID);
-    }
-    if (item.displayName && !seen.has(item.displayName)) {
-      datalist.innerHTML += `<option value="${item.displayName}">`;
-      seen.add(item.displayName);
-    }
-  });
-  console.log(datalist.innerHTML); // <-- Add this line
-}
-// --- Search Button ---
-function zoomToFeatureFuse(searchValue) {
-  if (!fuse) return;
-  // First, try exact match
-  let found = fuseData.find(item =>
-    item.standID.toLowerCase() === searchValue.toLowerCase() ||
-    item.displayName.toLowerCase() === searchValue.toLowerCase()
-  );
-  // If not found, use Fuse fuzzy search
-  if (!found) {
-    const results = fuse.search(searchValue);
-    if (results.length > 0) {
-      found = results[0].item;
-    }
-  }
-  if (found && found.feature) {
-    const geometry = found.feature.getGeometry();
-    const extent = geometry.getExtent();
-    map.getView().fit(extent, {
-      maxZoom: 22,
-      duration: 800,
-    });
-    featureOverlay.getSource().clear();
-    featureOverlay.getSource().addFeature(found.feature);
-  } else {
-    alert('No stand found for: ' + searchValue);
-  }
-}
-
-document.getElementById('feature-search-btn').onclick = function() {
-  const value = document.getElementById('feature-search').value.trim();
-  if (value) zoomToFeatureFuse(value);
-};
-document.getElementById('feature-search').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    const value = document.getElementById('feature-search').value.trim();
-    if (value) zoomToFeatureFuse(value);
-  }
+map.on('click', evt => {
+  highlightFeatureAtPixel(evt.pixel);
 });
 
 // --- Toggle Configurations ---
