@@ -412,3 +412,86 @@ function activateDrawStand() {
 
 // --- Button event listener ---
 document.getElementById('draw-stand-btn').addEventListener('click', activateDrawStand);
+
+// map.on('click', evt => {
+//   // Only select features from standsLayer
+//   const feature = map.forEachFeatureAtPixel(evt.pixel, f => {
+//     return standsLayer.getSource().hasFeature(f) ? f : null;
+//   });
+
+//   if (feature) {
+//     // Get all properties
+//     const props = feature.getProperties();
+//     // Remove geometry from props
+//     delete props.geometry;
+
+//     // Prompt for each property
+//     Object.keys(props).forEach(key => {
+//       const newValue = prompt(`Edit ${key}:`, props[key]);
+//       if (newValue !== null) {
+//         feature.set(key, newValue);
+//       }
+//     });
+//     standsLayer.changed();
+//   } else {
+//     highlightFeatureAtPixel(evt.pixel);
+//   }
+// });
+
+let editingFeature = null;
+
+function showStandEditForm(feature) {
+  editingFeature = feature;
+  const props = feature.getProperties();
+  delete props.geometry;
+
+  const fieldsDiv = document.getElementById('stand-properties-fields');
+  fieldsDiv.innerHTML = '';
+
+  Object.keys(props).forEach(key => {
+    const value = props[key] ?? '';
+    fieldsDiv.innerHTML += `
+      <label class="form-group" style="display:block; margin-bottom:8px;">
+        ${key}:<br>
+        <input class="form-control" name="${key}" value="${value}" style="width:180px;" />
+      </label>
+    `;
+  });
+
+  document.getElementById('stand-edit-form').style.display = 'block';
+}
+
+function hideStandEditForm() {
+  document.getElementById('stand-edit-form').style.display = 'none';
+  editingFeature = null;
+}
+
+// Handle form submit
+document.getElementById('stand-properties-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  if (!editingFeature) return;
+  const formData = new FormData(e.target);
+  for (const [key, value] of formData.entries()) {
+    editingFeature.set(key, value);
+  }
+  standsLayer.changed();
+  hideStandEditForm();
+});
+
+// Handle cancel button
+document.getElementById('close-stand-form').addEventListener('click', function() {
+  hideStandEditForm();
+});
+
+// Update map click handler to use the form
+map.on('click', evt => {
+  const feature = map.forEachFeatureAtPixel(evt.pixel, f => {
+    return standsLayer.getSource().hasFeature(f) ? f : null;
+  });
+
+  if (feature) {
+    showStandEditForm(feature);
+  } else {
+    highlightFeatureAtPixel(evt.pixel);
+  }
+});
