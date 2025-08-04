@@ -15,6 +15,8 @@ import Stroke from 'ol/style/Stroke.js';
 import Point from 'ol/geom/Point.js';
 import Style from 'ol/style/Style.js';
 import Text from 'ol/style/Text.js';
+import Draw from 'ol/interaction/Draw';
+import Polygon from 'ol/geom/Polygon';
 
 // --- Config ---
 const venueLonLat = [0.029912, 51.508144];
@@ -352,3 +354,61 @@ function updateLegend() {
     legendDiv.innerHTML = '<b>Legend</b>';
   }
 }
+
+// --- Rectangle Drawing Interaction ---
+let drawStandInteraction = null;
+
+// --- Add Draw Interaction for rectangles ---
+const gridSize = 2; // 2 meter grid
+
+function snapToGrid(coord) {
+  // Assuming your map units are meters
+  return coord.map(c => Math.round(c / gridSize) * gridSize);
+}
+
+function activateDrawStand() {
+  // Remove previous interaction if exists
+  if (drawStandInteraction) {
+    map.removeInteraction(drawStandInteraction);
+  }
+  drawStandInteraction = new Draw({
+    source: standsLayer.getSource(),
+    type: 'Circle',
+    geometryFunction: function(coordinates, geometry) {
+      // Draw a rectangle (box) instead of a circle
+      const start = snapToGrid(coordinates[0]);
+      const end = snapToGrid(coordinates[1]);
+      const minX = Math.min(start[0], end[0]);
+      const minY = Math.min(start[1], end[1]);
+      const maxX = Math.max(start[0], end[0]);
+      const maxY = Math.max(start[1], end[1]);
+      const boxCoords = [
+        [minX, minY],
+        [minX, maxY],
+        [maxX, maxY],
+        [maxX, minY],
+        [minX, minY]
+      ];
+      if (!geometry) {
+        geometry = new Polygon([boxCoords]);
+      } else {
+        geometry.setCoordinates([boxCoords]);
+      }
+      return geometry;
+    }
+  });
+  map.addInteraction(drawStandInteraction);
+
+ // Prompt for standID when drawing ends
+  drawStandInteraction.once('drawend', (evt) => {
+    map.removeInteraction(drawStandInteraction);
+    const feature = evt.feature;
+    const standID = prompt('Enter standID for this stand:', '');
+    if (standID !== null) {
+      feature.set('standID', standID);
+    }
+  });
+}
+
+// --- Button event listener ---
+document.getElementById('draw-stand-btn').addEventListener('click', activateDrawStand);
