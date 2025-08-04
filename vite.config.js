@@ -1,6 +1,6 @@
 export default {
   build: {
-    sourcemap: true,
-    base: '/athena/',
+    base: "/athena/",
+    sourcemap: true
   }
-}
+};
