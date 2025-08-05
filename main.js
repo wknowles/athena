@@ -254,6 +254,9 @@ const map = new Map({
 });
 map.addInteraction(link);
 
+console.log('Map projection:', map.getView().getProjection().getCode());
+console.log('Map units:', map.getView().getProjection().getUnits());
+
 
 // --- Highlight Feature on Hover ---
 const highlightStyle = new Style({
@@ -355,11 +358,27 @@ function updateLegend() {
   }
 }
 
+// Show width, length, and area of stand when drawing
+function showDrawInfo(length, width, area) {
+  const infoDiv = document.getElementById('stand-draw-info');
+  const dimsSpan = document.getElementById('stand-draw-dimensions');
+  dimsSpan.innerHTML = `
+    <b>Length:</b> ${length.toFixed(2)} m<br>
+    <b>Width:</b> ${width.toFixed(2)} m<br>
+    <b>Area:</b> ${area.toFixed(2)} m²
+  `;
+  infoDiv.style.display = 'block';
+}
+
+function hideDrawInfo() {
+  document.getElementById('stand-draw-info').style.display = 'none';
+}
+
 // --- Rectangle Drawing Interaction ---
 let drawStandInteraction = null;
 
 // --- Add Draw Interaction for rectangles ---
-const gridSize = 2; // 2 meter grid
+const gridSize = 0.5; // 2 meter grid
 
 function snapToGrid(coord) {
   // Assuming your map units are meters
@@ -375,7 +394,6 @@ function activateDrawStand() {
     source: standsLayer.getSource(),
     type: 'Circle',
     geometryFunction: function(coordinates, geometry) {
-      // Draw a rectangle (box) instead of a circle
       const start = snapToGrid(coordinates[0]);
       const end = snapToGrid(coordinates[1]);
       const minX = Math.min(start[0], end[0]);
@@ -389,6 +407,12 @@ function activateDrawStand() {
         [maxX, minY],
         [minX, minY]
       ];
+
+      const length = Math.abs(maxY - minY);
+      const width = Math.abs(maxX - minX);
+      const area = length * width;
+      showDrawInfo(length, width, area);
+
       if (!geometry) {
         geometry = new Polygon([boxCoords]);
       } else {
@@ -401,6 +425,7 @@ function activateDrawStand() {
 
  // Prompt for standID when drawing ends
   drawStandInteraction.once('drawend', (evt) => {
+    hideDrawInfo();
     map.removeInteraction(drawStandInteraction);
     const feature = evt.feature;
     const standID = prompt('Enter standID for this stand:', '');
@@ -413,31 +438,8 @@ function activateDrawStand() {
 // --- Button event listener ---
 document.getElementById('draw-stand-btn').addEventListener('click', activateDrawStand);
 
-// map.on('click', evt => {
-//   // Only select features from standsLayer
-//   const feature = map.forEachFeatureAtPixel(evt.pixel, f => {
-//     return standsLayer.getSource().hasFeature(f) ? f : null;
-//   });
-
-//   if (feature) {
-//     // Get all properties
-//     const props = feature.getProperties();
-//     // Remove geometry from props
-//     delete props.geometry;
-
-//     // Prompt for each property
-//     Object.keys(props).forEach(key => {
-//       const newValue = prompt(`Edit ${key}:`, props[key]);
-//       if (newValue !== null) {
-//         feature.set(key, newValue);
-//       }
-//     });
-//     standsLayer.changed();
-//   } else {
-//     highlightFeatureAtPixel(evt.pixel);
-//   }
-// });
-
+// --- Stand Edit Form ---
+// This form will allow users to edit stand properties when clicking on a stand
 let editingFeature = null;
 
 function showStandEditForm(feature) {
