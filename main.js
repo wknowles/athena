@@ -6,6 +6,7 @@ import ScaleLine from 'ol/control/ScaleLine.js';
 import Link from 'ol/interaction/Link.js';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM.js';
+// import olms from 'ol-mapbox-style';
 import {fromLonLat} from 'ol/proj.js';
 import GeoJSON from 'ol/format/GeoJSON.js';
 import VectorLayer from 'ol/layer/Vector.js';
@@ -22,8 +23,8 @@ import Polygon from 'ol/geom/Polygon';
 const venueLonLat = [0.029912, 51.508144];
 const extentValue = 1500;
 const defaultZoom = 17;
-// const defaultRotation = 1.570796;  // 90 degrees in radians
-const defaultRotation = 0; // No rotation
+ const defaultRotation = 1.570796;  // 90 degrees in radians
+//const defaultRotation = 0; // No rotation
 const link = new Link();
 
 // --- Center & Extents ---
@@ -35,7 +36,7 @@ const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentVa
 
 // --- Setup Colors ---
 const venueStyle = new Style({
-    fill: new Fill({ color: 'rgba(218, 218, 218, 1)' }),
+    fill: new Fill({ color: '#E5E5E5' }),
     stroke: new Stroke({ color: '#1a2a31ff', width: 3 }),
   });
   
@@ -69,7 +70,7 @@ let showStandTypeFill = false;
 function getStandFillStyle(feature) {
   const defaultStyle = new Style({
     fill: new Fill({ color: 'rgba(255, 255, 255, 1)' }),
-    stroke: new Stroke({ color: '#319FD3', width: 1 }),
+    stroke: new Stroke({ color: '#000000ff', width: 1 }),
   });
   if (showStatusFill) {
     const status = feature.get('Status');
@@ -98,76 +99,134 @@ function getStandFillStyle(feature) {
   return defaultStyle;
 }
 
-// --- Stand ID Labels ---
-const standIDLabel = (feature) => {
-  const standID = feature.get('standID') || '';
-  const extent = feature.getGeometry().getExtent();
-  const topLeft = [extent[0], extent[3]];
-  // Create a new style with the label at the top left
-  const style = new Style({
-    geometry: new Point(topLeft),
-    text: new Text({
-      text: String(standID),
-      font: 'bold 10px Calibri,sans-serif',
-      fill: new Fill({ color: '#000' }),
-      stroke: new Stroke({ color: '#fff', width: 4 }),
-      offsetX: 10, // adjust as needed to avoid clipping
-      offsetY: 10,  // adjust as needed to avoid clipping
-      textAlign: 'left',
-      textBaseline: 'top',
-    }),
-  });
-  return style;
-};
 // -- Function to wrap Exhibitor Name so it runs multiple lines ---
 const standNameLabel = (feature) => {
   function wrapExhibitorName(text, maxLen) {
-    if (!text) return '';
-    const words = text.split(' ');
-    let lines = [];
-    let line = '';
-    words.forEach(word => {
-      if ((line + word).length > maxLen) {
-        lines.push(line.trim());
-        line = '';
-      }
+  if (!text) return '';
+  
+  // If text is shorter than maxLen, return as-is
+  if (text.length <= maxLen) return text;
+  
+  const words = text.split(' ');
+  let lines = [];
+  let line = '';
+  
+  words.forEach(word => {
+    if ((line + word).length > maxLen) {
+      if (line.trim()) lines.push(line.trim());
+      line = word + ' ';
+    } else {
       line += word + ' ';
-    });
-    if (line) lines.push(line.trim());
-    return lines.join('\n');
-  }
+    }
+  });
+  
+  if (line.trim()) lines.push(line.trim());
+  return lines.join('\n');
+}
 
-// -- Exhibitor Name Label ---
-  const displayName = wrapExhibitorName(feature.get('Display Name'), 12);
+// -- Exhibitor and StandID Labels ---
+  const displayName = wrapExhibitorName(feature.get('Display Name'), 16);
+  const standID = feature.get('standID');
   const geometry = feature.getGeometry();
   const center = geometry.getInteriorPoint ? geometry.getInteriorPoint() : geometry.getClosestPoint();
 
   // Get current map resolution (smaller = more zoomed in)
   const resolution = map.getView().getResolution();
 
- // Calculate font size based on feature size and map resolution 
+  // Calculate feature dimensions
   const extent = geometry.getExtent();
   const width = extent[2] - extent[0];
   const height = extent[3] - extent[1];
-  // Choose a scaling factor that works for your map units
-  const minFont = 4;
+
+  // Convert to pixels for better font size calculation
+  const widthInPixels = width / resolution;
+  const heightInPixels = height / resolution;
+
+  // --- Count lines in displayName ---
+  const displayNameLines = displayName.split('\n').length;
+
+ // Calculate font size that fits within the feature bounds
+  const minFont = 8;
   const maxFont = 16;
   
-  let baseFont = Math.min(width, height) / 8;
-  let zoomFont = baseFont / resolution;
-  let fontSize = Math.max(minFont, Math.min(maxFont, Math.round(zoomFont)));
+  // Calculate max font size based on width (longest line should fit)
+  const longestLine = displayName.split('\n').reduce((longest, line) => 
+    line.length > longest.length ? line : longest, '');
+  const maxFontByWidth = Math.floor(widthInPixels / (longestLine.length * 0.6)); // 0.6 is char width ratio
+  
+  // Calculate max font size based on height (all lines should fit)
+  const totalTextHeight = displayNameLines + (standID ? 1 : 0); // +1 for standID if exists
+  const maxFontByHeight = Math.floor(heightInPixels / (totalTextHeight * 1.4)); // 1.4 is line height ratio
+  
+  // Use the smaller of the two constraints
+  let fontSize = Math.min(maxFontByWidth, maxFontByHeight);
+  fontSize = Math.max(minFont, Math.min(maxFont, fontSize));
+ 
+  // Calculate vertical offset with the new fontSize
+  const lineHeight = fontSize * 1.2;
+  let displayNameOffset = 0;
+  let standIDOffset = 0;
 
-  return new Style({
-    geometry: center,
-    text: new Text({
-      text: displayName,
-      font: `${fontSize}px Georgia, serif`,
-      fill: new Fill({ color: '#000'}),
-      stroke: new Stroke({ color: '#fff', width: 4 }),
-      textAlign: 'center',
-      textBaseline: 'middle',
-    }),
-  });
+  // if (displayName && displayName.trim()) {
+  //   // Center the text block within the feature
+  //   const totalTextHeight = (displayNameLines - 1) * lineHeight + (standID ? fontSize * 1.2 : 0);
+  //   displayNameOffset = -(totalTextHeight / 2);
+  //   standIDOffset = displayNameOffset + (displayNameLines * lineHeight);
+  // } else {
+  //   standIDOffset = 0; // Center the standID
+  // }
+
+  if (displayName && displayName.trim()) {
+    // Calculate the total height of the displayName block
+    const displayNameHeight = (displayNameLines - 1) * lineHeight;
+    // Center the displayName above the center point
+    displayNameOffset = -(displayNameHeight / 2) - (fontSize * 0.3);
+    // Place standID below the displayName with proper spacing
+    standIDOffset = (fontSize * 1.2);
+  } else {
+    // If no displayName, center the standID
+    standIDOffset = 0;
+  }
+
+  // Style for displayName
+  const styles = [];
+
+  if (displayName && displayName.trim()) {
+    const displayNameStyle = new Style({
+      geometry: center,
+      text: new Text({
+        text: displayName,
+        font: `bold ${fontSize}px Lato, sans-serif`,
+        fill: new Fill({ color: '#14213D'}),
+        stroke: new Stroke({ color: '#fff', width: 2}),
+        textAlign: 'center',
+        textBaseline: 'middle',
+        offsetY: displayNameOffset,
+        overflow: false,
+      }),
+    });
+    styles.push(displayNameStyle);
+  }
+
+ // Style for standID
+  if (standID) {
+    const standIDStyle = new Style({
+      geometry: center,
+      text: new Text({
+        text: String(standID),
+        font: `${fontSize * 0.8}px Lato, sans-serif`,
+        fill: new Fill({ color: '#14213D' }),
+        stroke: new Stroke({ color: '#fff', width: 2 }),
+        textAlign: 'center',
+        textBaseline: 'middle',
+        offsetY: standIDOffset,
+        overflow: false,
+      }),
+    });
+    styles.push(standIDStyle);
+  }
+
+return styles;
 };
 
 // --- Scale Control ---
@@ -186,7 +245,7 @@ const venueLayer = new VectorLayer({
     url: 'WTMKT25venue.geojson',
     format: new GeoJSON(),
   }),
-  maxResolution: 0.4,
+  // maxResolution: 0.4,
   style: venueStyle,
 });
 
@@ -198,8 +257,7 @@ const standsLayer = new VectorLayer({
     format: new GeoJSON(),
   }),
   style: feature => [
-    standIDLabel(feature),
-    standNameLabel(feature),
+    ...standNameLabel(feature),
     getStandFillStyle(feature),
   ],
 });
@@ -239,11 +297,11 @@ const map = new Map({
   layers: [
     new TileLayer({
       source: new OSM(),
-      minResolution: 0.4,
+      // minResolution: 0.4,
       }),
     venueLayer,
     standsLayer,
-    standAreaLayer,
+    // standAreaLayer,
   ],
   view: new View({
     center: center,
@@ -256,7 +314,6 @@ map.addInteraction(link);
 
 console.log('Map projection:', map.getView().getProjection().getCode());
 console.log('Map units:', map.getView().getProjection().getUnits());
-
 
 // --- Highlight Feature on Hover ---
 const highlightStyle = new Style({
