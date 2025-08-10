@@ -1,12 +1,10 @@
-// --- Imports ---
 import './style.css';
 import {Map, View} from 'ol';
 import {defaults as defaultControls} from 'ol/control/defaults.js';
 import ScaleLine from 'ol/control/ScaleLine.js';
 import Link from 'ol/interaction/Link.js';
 import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM.js';
-// import olms from 'ol-mapbox-style';
+import {apply} from 'ol-mapbox-style';
 import {fromLonLat} from 'ol/proj.js';
 import GeoJSON from 'ol/format/GeoJSON.js';
 import VectorLayer from 'ol/layer/Vector.js';
@@ -23,8 +21,8 @@ import Polygon from 'ol/geom/Polygon';
 const venueLonLat = [0.029912, 51.508144];
 const extentValue = 1500;
 const defaultZoom = 17;
- const defaultRotation = 1.570796;  // 90 degrees in radians
-//const defaultRotation = 0; // No rotation
+// const defaultRotation = 1.570796;  // 90 degrees in radians
+const defaultRotation = 0; // No rotation
 const link = new Link();
 
 // --- Center & Extents ---
@@ -37,7 +35,7 @@ const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentVa
 // --- Setup Colors ---
 const venueStyle = new Style({
     fill: new Fill({ color: '#E5E5E5' }),
-    stroke: new Stroke({ color: '#1a2a31ff', width: 3 }),
+    stroke: new Stroke({ color: '#1a2a31ff', width: 4}),
   });
   
 // Colour palette for product codes
@@ -167,15 +165,6 @@ const standNameLabel = (feature) => {
   let displayNameOffset = 0;
   let standIDOffset = 0;
 
-  // if (displayName && displayName.trim()) {
-  //   // Center the text block within the feature
-  //   const totalTextHeight = (displayNameLines - 1) * lineHeight + (standID ? fontSize * 1.2 : 0);
-  //   displayNameOffset = -(totalTextHeight / 2);
-  //   standIDOffset = displayNameOffset + (displayNameLines * lineHeight);
-  // } else {
-  //   standIDOffset = 0; // Center the standID
-  // }
-
   if (displayName && displayName.trim()) {
     // Calculate the total height of the displayName block
     const displayNameHeight = (displayNameLines - 1) * lineHeight;
@@ -273,7 +262,7 @@ const standAreaLayer = new VectorLayer({
     const area = feature.get('Area') || '';
     const extent = feature.getGeometry().getExtent();
     const bottomRight = [extent[2], extent[1]];
-    // Create a new style with the label at the top left
+    // Create a new style with the label at the bottom right corner
     return new Style({
       geometry: new Point(bottomRight),
       text: new Text({
@@ -294,15 +283,6 @@ const standAreaLayer = new VectorLayer({
 const map = new Map({
   controls: defaultControls().extend([scaleControl()]),
   target: 'map',
-  layers: [
-    new TileLayer({
-      source: new OSM(),
-      // minResolution: 0.4,
-      }),
-    venueLayer,
-    standsLayer,
-    // standAreaLayer,
-  ],
   view: new View({
     center: center,
     zoom: zoom,
@@ -310,10 +290,59 @@ const map = new Map({
     extent: extents,
   })
 });
-map.addInteraction(link);
+// Apply MapTiler Streets v2 style
+apply(map, 'https://api.maptiler.com/maps/0198936d-95b3-7462-83fb-1066bb038158/style.json?key=IxIgfuNbODR6NTdYRuNZ')
+  .then(() => {
+    // Store references to basemap layers (all layers added by apply())
+    basemapLayers = map.getLayers().getArray().slice(); // Copy current layers
+    
+    // Add your custom layers after the style is loaded
+    map.addLayer(venueLayer);
+    map.addLayer(standsLayer);
+    // map.addLayer(standAreaLayer);
+    
+    // Add interactions after map is ready
+    map.addInteraction(link);
 
-console.log('Map projection:', map.getView().getProjection().getCode());
-console.log('Map units:', map.getView().getProjection().getUnits());
+       // --- Highlight Feature on Hover ---
+    map.on('pointermove', evt => {
+      if (!evt.dragging) {
+        highlightFeatureAtPixel(evt.pixel);
+      }
+    });
+
+    map.on('click', evt => {
+      const feature = map.forEachFeatureAtPixel(evt.pixel, f => {
+        return standsLayer.getSource().hasFeature(f) ? f : null;
+      });
+
+      if (feature) {
+        showStandEditForm(feature);
+      } else {
+        highlightFeatureAtPixel(evt.pixel);
+      }
+    });
+    
+    console.log('Map loaded successfully!');
+    console.log('Map projection:', map.getView().getProjection().getCode());
+    console.log('Map units:', map.getView().getProjection().getUnits());
+  })
+  .catch(error => {
+    console.error('Error loading MapTiler style:', error);
+  });
+
+  // Basemap toggle function
+function toggleBasemap(show) {
+  showBasemap = show;
+  basemapLayers.forEach(layer => {
+    layer.setVisible(show);
+  });
+}
+
+// Add basemap toggle event listener
+document.getElementById('basemap-toggle').addEventListener('change', function(e) {
+  toggleBasemap(e.target.checked);
+});
 
 // --- Highlight Feature on Hover ---
 const highlightStyle = new Style({
@@ -346,17 +375,20 @@ const highlightFeatureAtPixel = pixel => {
   }
 };
 
-map.on('pointermove', evt => {
-  if (!evt.dragging) {
-    highlightFeatureAtPixel(evt.pixel);
-  }
-});
+// map.on('pointermove', evt => {
+//   if (!evt.dragging) {
+//     highlightFeatureAtPixel(evt.pixel);
+//   }
+// });
 
-map.on('click', evt => {
-  highlightFeatureAtPixel(evt.pixel);
-});
+// map.on('click', evt => {
+//   highlightFeatureAtPixel(evt.pixel);
+// });
 
 // --- Toggle Configurations ---
+// --- Basemap Toggle ---
+let showBasemap = true;
+let basemapLayers = []; // Store reference to basemap layers
 // These toggles will allow users to show/hide different fill styles for the stands
 const toggleConfig = {
   'status-toggle': () => (showStatusFill = false),
@@ -543,14 +575,14 @@ document.getElementById('close-stand-form').addEventListener('click', function()
 });
 
 // Update map click handler to use the form
-map.on('click', evt => {
-  const feature = map.forEachFeatureAtPixel(evt.pixel, f => {
-    return standsLayer.getSource().hasFeature(f) ? f : null;
-  });
+// map.on('click', evt => {
+//   const feature = map.forEachFeatureAtPixel(evt.pixel, f => {
+//     return standsLayer.getSource().hasFeature(f) ? f : null;
+//   });
 
-  if (feature) {
-    showStandEditForm(feature);
-  } else {
-    highlightFeatureAtPixel(evt.pixel);
-  }
-});
+//   if (feature) {
+//     showStandEditForm(feature);
+//   } else {
+//     highlightFeatureAtPixel(evt.pixel);
+//   }
+// });
