@@ -35,7 +35,7 @@ const extents = [x - extentValue, y - extentValue, x + extentValue, y + extentVa
 // --- Setup Colors ---
 const venueStyle = new Style({
     fill: new Fill({ color: '#E5E5E5' }),
-    stroke: new Stroke({ color: '#1a2a31ff', width: 4}),
+    stroke: new Stroke({ color: '#205a4dff', width: 2}),
   });
   
 // Colour palette for product codes
@@ -50,8 +50,8 @@ const productColors = {
 // Colour palette for Stand Status  
 const statusColors = {
   'Sold': 'rgba(242, 166, 166, 1)',
-  'Available': 'rgba(237, 255, 194, 1)',
-  'Held': 'rgba(205, 239, 244, 1)',
+  'Held': 'rgba(237, 255, 194, 1)',
+  'Available': 'rgba(205, 239, 244, 1)',
 };
 // Colour palette for Stand Status  
 const standTypeColors = {
@@ -68,7 +68,7 @@ let showStandTypeFill = false;
 function getStandFillStyle(feature) {
   const defaultStyle = new Style({
     fill: new Fill({ color: 'rgba(255, 255, 255, 1)' }),
-    stroke: new Stroke({ color: '#000000ff', width: 1 }),
+    stroke: new Stroke({ color: '#8a8a8aff', width: 1 }),
   });
   if (showStatusFill) {
     const status = feature.get('Status');
@@ -147,7 +147,7 @@ const standNameLabel = (feature) => {
   const minFont = 8;
   const maxFont = 16;
   
-  // Calculate max font size based on width (longest line should fit)
+  // Calculate max font size based on width (longest line should fit within feature bounds)
   const longestLine = displayName.split('\n').reduce((longest, line) => 
     line.length > longest.length ? line : longest, '');
   const maxFontByWidth = Math.floor(widthInPixels / (longestLine.length * 0.6)); // 0.6 is char width ratio
@@ -161,21 +161,41 @@ const standNameLabel = (feature) => {
   fontSize = Math.max(minFont, Math.min(maxFont, fontSize));
  
   // Calculate vertical offset with the new fontSize
-  const lineHeight = fontSize * 1.2;
+  const lineHeight = fontSize * 1.1;
   let displayNameOffset = 0;
   let standIDOffset = 0;
 
+  // if (displayName && displayName.trim()) {
+  //   // Calculate the total height of the displayName block
+  //   const displayNameHeight = (displayNameLines - 1) * lineHeight;
+  //   // Center the displayName above the center point
+  //   displayNameOffset = -(displayNameHeight / 2) - (fontSize * 0.3);
+  //   // Place standID below the displayName with proper spacing
+  //   standIDOffset = (fontSize * 1.2);
+  // } else {
+  //   // If no displayName, center the standID
+  //   standIDOffset = 0;
+  // }
+
   if (displayName && displayName.trim()) {
-    // Calculate the total height of the displayName block
-    const displayNameHeight = (displayNameLines - 1) * lineHeight;
-    // Center the displayName above the center point
-    displayNameOffset = -(displayNameHeight / 2) - (fontSize * 0.3);
-    // Place standID below the displayName with proper spacing
-    standIDOffset = (fontSize * 1.2);
-  } else {
-    // If no displayName, center the standID
-    standIDOffset = 0;
-  }
+  // Calculate total heights
+  const displayNameHeight = displayNameLines * lineHeight;
+  const standIDHeight = standID ? fontSize * 0.8 : 0; // standID font is 0.8 of fontSize
+  const totalTextHeight = displayNameHeight + standIDHeight;
+  const gapBetweenTexts = standID ? fontSize * 0.8 : 0; // Small gap between texts
+  
+  // Center the entire text block within the feature
+  const blockStartY = -(totalTextHeight + gapBetweenTexts) / 2;
+  
+  // Position displayName at the top of the centered block
+  displayNameOffset = blockStartY + (displayNameHeight / 2);
+  
+  // Position standID below displayName
+  standIDOffset = blockStartY + displayNameHeight + gapBetweenTexts + (standIDHeight / 2);
+} else {
+  // If no displayName, center the standID
+  standIDOffset = 0;
+}
 
   // Style for displayName
   const styles = [];
@@ -185,7 +205,7 @@ const standNameLabel = (feature) => {
       geometry: center,
       text: new Text({
         text: displayName,
-        font: `bold ${fontSize}px Lato, sans-serif`,
+        font: `800 ${fontSize}px Lato, sans-serif`,
         fill: new Fill({ color: '#14213D'}),
         stroke: new Stroke({ color: '#fff', width: 2}),
         textAlign: 'center',
@@ -203,7 +223,7 @@ const standNameLabel = (feature) => {
       geometry: center,
       text: new Text({
         text: String(standID),
-        font: `${fontSize * 0.8}px Lato, sans-serif`,
+        font: `italic 400 ${fontSize * 0.8}px Lato, sans-serif`,
         fill: new Fill({ color: '#14213D' }),
         stroke: new Stroke({ color: '#fff', width: 2 }),
         textAlign: 'center',
@@ -231,7 +251,7 @@ const scaleControl = () =>
 // --- Venue Layer ---
 const venueLayer = new VectorLayer({
   source: new VectorSource({
-    url: 'WTMKT25venue.geojson',
+    url: '/WTMKT25venue.geojson',
     format: new GeoJSON(),
   }),
   // maxResolution: 0.4,
@@ -242,7 +262,7 @@ const venueLayer = new VectorLayer({
 const standsLayer = new VectorLayer({
   declutter: true,
   source: new VectorSource({
-    url: 'WTMKT25.geojson',
+    url: '/WTMKT25.geojson',
     format: new GeoJSON(),
   }),
   style: feature => [
@@ -254,7 +274,7 @@ const standsLayer = new VectorLayer({
  // --- Stand Area Labels ---
 const standAreaLayer = new VectorLayer({
   source: new VectorSource({
-    url: 'WTMKT25.geojson',
+    url: '/WTMKT25.geojson',
     format: new GeoJSON(),
   }),
   maxResolution: 0.15,
