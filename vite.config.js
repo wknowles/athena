@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  base: "/athena/",
   optimizeDeps: {
     exclude: ['ol-mapbox-style']
   },
@@ -10,7 +11,6 @@ export default defineConfig({
     }
   },
   build: {
-    base: "/athena/",
     sourcemap: true,
   }
 })  

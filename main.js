@@ -251,7 +251,7 @@ const scaleControl = () =>
 // --- Venue Layer ---
 const venueLayer = new VectorLayer({
   source: new VectorSource({
-    url: '/WTMKT25venue.geojson',
+    url: import.meta.env.BASE_URL + 'WTMKT25venue.geojson',
     format: new GeoJSON(),
   }),
   // maxResolution: 0.4,
@@ -262,7 +262,7 @@ const venueLayer = new VectorLayer({
 const standsLayer = new VectorLayer({
   declutter: true,
   source: new VectorSource({
-    url: '/WTMKT25.geojson',
+    url: import.meta.env.BASE_URL + 'WTMKT25.geojson',
     format: new GeoJSON(),
   }),
   style: feature => [
@@ -274,7 +274,7 @@ const standsLayer = new VectorLayer({
  // --- Stand Area Labels ---
 const standAreaLayer = new VectorLayer({
   source: new VectorSource({
-    url: '/WTMKT25.geojson',
+    url: import.meta.env.BASE_URL + 'WTMKT25.geojson',
     format: new GeoJSON(),
   }),
   maxResolution: 0.15,
