@@ -311,7 +311,7 @@ const map = new Map({
   })
 });
 // Apply MapTiler Streets v2 style
-apply(map, 'https://api.maptiler.com/maps/0198936d-95b3-7462-83fb-1066bb038158/style.json?key=IxIgfuNbODR6NTdYRuNZ')
+apply(map, 'https://api.maptiler.com/maps/0198936d-95b3-7462-83fb-1066bb038158/style.json?key=L7Xr1fJJ4jBWX3rjyRgA')
   .then(() => {
     // Store references to basemap layers (all layers added by apply())
     basemapLayers = map.getLayers().getArray().slice(); // Copy current layers
