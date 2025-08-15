@@ -1,15 +1,18 @@
 {
   "name": "athena",
+  "private": true,
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "start": "vite",
-    "build": "vite build",
+    "build": "vite build --base /athena/ --sourcemap",
     "serve": "vite preview"
   },
   "devDependencies": {
     "vite": "^7.1.1"
   },
   "dependencies": {
-    "ol": "latest"
+    "ol": "latest",
+    "ol-mapbox-style": "^13.0.1"
   }
 }
