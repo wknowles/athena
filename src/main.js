@@ -7,10 +7,6 @@ import TileLayer from 'ol/layer/Tile';
 import {apply} from 'ol-mapbox-style';
 import {fromLonLat} from 'ol/proj.js';
 import GeoJSON from 'ol/format/GeoJSON.js';
-<<<<<<< HEAD
-import TopoJSON from 'ol/format/TopoJSON.js';
-=======
->>>>>>> minerva
 import VectorLayer from 'ol/layer/Vector.js';
 import VectorSource from 'ol/source/Vector.js';
 import Fill from 'ol/style/Fill.js';
@@ -53,11 +49,11 @@ const productColors = {
 };
 // Colour palette for Stand Status  
 const statusColors = {
-  'Sold': 'rgba(242, 166, 166, 1)',
-  'Held': 'rgba(237, 255, 194, 1)',
+  'Sold': 'rgba(255, 255, 255, 1)',
+  'Held': 'rgba(248, 254, 236, 1)',
   'Available': 'rgba(205, 239, 244, 1)',
 };
-// Colour palette for Stand Status  
+// Colour palette for Stand Type
 const standTypeColors = {
   'Shell': 'rgba(115, 212, 171, 1)',
   'Space': 'rgba(251, 202, 239, 1)',
@@ -77,9 +73,10 @@ function getStandFillStyle(feature) {
   if (showStatusFill) {
     const status = feature.get('Status');
     const fillColor = statusColors[status] || 'rgba(255, 255, 255, 1)';
+    let strokeColor = status === 'Sold' ? '#8a8a8aff' : fillColor;
     return new Style({
       fill: new Fill({ color: fillColor }),
-      stroke: new Stroke({ color: '#319FD3', width: 1 }),
+      stroke: new Stroke({ color: strokeColor , width: 1 }),
     });
   }
   if (showProductFill) {
@@ -169,18 +166,6 @@ const standNameLabel = (feature) => {
   let displayNameOffset = 0;
   let standIDOffset = 0;
 
-  // if (displayName && displayName.trim()) {
-  //   // Calculate the total height of the displayName block
-  //   const displayNameHeight = (displayNameLines - 1) * lineHeight;
-  //   // Center the displayName above the center point
-  //   displayNameOffset = -(displayNameHeight / 2) - (fontSize * 0.3);
-  //   // Place standID below the displayName with proper spacing
-  //   standIDOffset = (fontSize * 1.2);
-  // } else {
-  //   // If no displayName, center the standID
-  //   standIDOffset = 0;
-  // }
-
   if (displayName && displayName.trim()) {
   // Calculate total heights
   const displayNameHeight = displayNameLines * lineHeight;
@@ -209,7 +194,7 @@ const standNameLabel = (feature) => {
       geometry: center,
       text: new Text({
         text: displayName,
-        font: `800 ${fontSize}px Lato, sans-serif`,
+        font: `800 ${fontSize}px Arial, sans-serif`,
         fill: new Fill({ color: '#14213D'}),
         stroke: new Stroke({ color: '#fff', width: 2}),
         textAlign: 'center',
@@ -227,7 +212,7 @@ const standNameLabel = (feature) => {
       geometry: center,
       text: new Text({
         text: String(standID),
-        font: `italic 400 ${fontSize * 0.8}px Lato, sans-serif`,
+        font: `italic 400 ${fontSize * 0.8}px Arial, sans-serif`,
         fill: new Fill({ color: '#14213D' }),
         stroke: new Stroke({ color: '#fff', width: 2 }),
         textAlign: 'center',
@@ -252,12 +237,11 @@ const scaleControl = () =>
     minWidth: 140,
   });
 
-// -- Stands Layer ---
-const standsLayer = new VectorLayer({
-    declutter: 'separate',
-    source: new VectorSource({
-    url: 'WTMKT25-alt.geojson',
-    format: new GeoJSON(), 
+  // --- Venue Layer ---
+const venueLayer = new VectorLayer({
+  source: new VectorSource({
+    url: import.meta.env.BASE_URL + 'WTMKT25venue.geojson',
+    format: new GeoJSON(),
   }),
   // maxResolution: 0.4,
   style: venueStyle,
@@ -284,24 +268,6 @@ const standAreaLayer = new VectorLayer({
   }),
   maxResolution: 0.15,
   style: feature => {
-<<<<<<< HEAD
-    labelStyle.getText().setText(
-      [
-        // ` ${feature.get('Display Name')}`,
-        // '',
-        // '\n',
-        // '',
-        `${feature.get('standID')}`,
-        'bold 12px Calibri,sans-serif',
-        // '\n',
-        // '',
-        // `${feature.get('Area')} m²`,
-        // 'italic 10px Calibri,sans-serif',
-      ]
-    );
-    return style;
-  },
-=======
     const area = feature.get('Area') || '';
     const extent = feature.getGeometry().getExtent();
     const bottomRight = [extent[2], extent[1]];
@@ -310,7 +276,7 @@ const standAreaLayer = new VectorLayer({
       geometry: new Point(bottomRight),
       text: new Text({
         text: String(area),
-        font: 'italic 8px Calibri,sans-serif',
+        font: 'italic 8px Arial,sans-serif',
         fill: new Fill({ color: '#000' }),
         stroke: new Stroke({ color: '#fff', width: 4 }),
         offsetX: -8, // adjust as needed to avoid clipping
@@ -320,7 +286,6 @@ const standAreaLayer = new VectorLayer({
       }),
     });
   }
->>>>>>> minerva
 });
 
 // --- Map ---
@@ -419,16 +384,6 @@ const highlightFeatureAtPixel = pixel => {
   }
 };
 
-// map.on('pointermove', evt => {
-//   if (!evt.dragging) {
-//     highlightFeatureAtPixel(evt.pixel);
-//   }
-// });
-
-// map.on('click', evt => {
-//   highlightFeatureAtPixel(evt.pixel);
-// });
-
 // --- Toggle Configurations ---
 // --- Basemap Toggle ---
 let showBasemap = true;
@@ -511,7 +466,7 @@ function hideDrawInfo() {
 let drawStandInteraction = null;
 
 // --- Add Draw Interaction for rectangles ---
-const gridSize = 0.5; // 2 meter grid
+const gridSize = 0.5; // 0.5 meter grid
 
 function snapToGrid(coord) {
   // Assuming your map units are meters
@@ -617,16 +572,3 @@ document.getElementById('stand-properties-form').addEventListener('submit', func
 document.getElementById('close-stand-form').addEventListener('click', function() {
   hideStandEditForm();
 });
-
-// Update map click handler to use the form
-// map.on('click', evt => {
-//   const feature = map.forEachFeatureAtPixel(evt.pixel, f => {
-//     return standsLayer.getSource().hasFeature(f) ? f : null;
-//   });
-
-//   if (feature) {
-//     showStandEditForm(feature);
-//   } else {
-//     highlightFeatureAtPixel(evt.pixel);
-//   }
-// });
